@@ -1,0 +1,12 @@
+numpy==2.2.6
+pandas==2.2.3
+Pillow==11.2.1
+scikit_learn==1.6.1
+scipy==1.15.3
+torch==2.7.0
+torchvision==0.22.0
+tqdm==4.67.1
+utils==1.0.2
+opencv-python==4.11.0
+matplotlib==3.10.3
+

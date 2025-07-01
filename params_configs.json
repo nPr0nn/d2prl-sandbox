@@ -1,0 +1,29 @@
+{
+  "inference": {
+    "model_path": "d2prl_weights.pth",
+    "dataset_path": "/home/lucas/Pesquisa/Horus-IC/datasets/copy-move/CoMoFoD_small_v2_standard",
+    "output_path": "output/inference",
+    "image_size": 448,
+    "batch_size": 1,
+    "pm_iterations": 40,
+    "seed": 42,
+    "show": true,
+    "save": false
+  },
+  "finetune": {
+    "model_path": "d2prl_weights.pth",
+    "dataset_path": "/home/lucas/Pesquisa/Horus-IC/datasets/copy-move/recod-cmfd-fine-tunning-dataset/synthetic",
+    "output_path": "output/finetune",
+    "image_size": 48,
+    "batch_size": 1,
+    "pm_iterations": 40,
+    "seed": 42,
+    "val_fraction": 0.2,
+    "learning_rate": 0.0001,
+    "epochs": 3,
+    "freeze_backbone": true,
+    "saving_interval": 1,
+    "patience": 20
+  }
+}
+

@@ -3,14 +3,12 @@ ResNet code gently borrowed from
 https://github.com/pytorch/vision/blob/master/torchvision/models/resnet.py
 """
 
-from collections import OrderedDict
 import math
-
 import torch
 import torch.nn as nn
 
-# from sync_batchnorm import SynchronizedBatchNorm2d as BatchNorm2d
 from torch.nn import BatchNorm2d
+from collections import OrderedDict
 
 __all__ = [
     'SENet',
@@ -703,6 +701,5 @@ def se_resnext101_32x4d(num_classes=1000, pretrained='imagenet'):
 
 
 if __name__ == '__main__':
-
     s = se_resnext50_32x4d(pretrained=None)
     print(s)

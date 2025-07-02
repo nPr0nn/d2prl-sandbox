@@ -129,30 +129,33 @@ def run_finetune(params):
     for epoch in range(1, params['epochs'] + 1):
         model.train()
         epoch_train_losses = []
-        pbar         = tqdm(train_loader, desc=f"Epoch {epoch}/{params['epochs']}")
+        pbar = tqdm(train_loader, desc=f"[Train] Epoch {epoch}/{params['epochs']}")
         for image, gt_mask, _ in pbar:
             image, gt_mask = image.to(device), gt_mask.to(device)
 
             # Break ground truth mask into its components
-            mask_tampering = (1 - gt_mask[:, 2, :, :]).unsqueeze(1) # not blue (both source and copied region)
-            mask_target    = gt_mask[:, 0, :, :].unsqueeze(1)   # red (copied region)
-            mask_source    = gt_mask[:, 1, :, :].unsqueeze(1)   # green (source region)
+            mask_tampering = (1 - gt_mask[:, 2, :, :]).unsqueeze(1)  # not blue
+            mask_target    = gt_mask[:, 0, :, :].unsqueeze(1)        # red
+            mask_source    = gt_mask[:, 1, :, :].unsqueeze(1)        # green
 
             optimizer.zero_grad()
 
             with autocast(device_type=device.type):
                 binary_mask, binary_mask_round, residual, unet_mask = model(image)
 
-                loss1      = dice_loss(binary_mask, mask_tampering)
-                loss2      = dice_loss(unet_mask, mask_target)
+                loss1 = dice_loss(binary_mask, mask_tampering)
+                loss2 = dice_loss(unet_mask, mask_target)
 
-                error_term, _ = torch.max(torch.cat(
-                    [0.05 * torch.ones_like(residual).to(residual.device) - residual * (mask_source - mask_target),
-                    torch.zeros_like(residual).to(residual.device)], 
-                    dim=-3), dim=1, keepdim=True) 
+                error_term, _ = torch.max(torch.cat([
+                    0.05 * torch.ones_like(residual) - residual * (mask_source - mask_target),
+                    torch.zeros_like(residual)
+                ], dim=-3), dim=1, keepdim=True)
 
-                loss3      = torch.sum(binary_mask_round * mask_tampering * error_term * 1e-4)
+                loss3 = torch.sum(binary_mask_round * mask_tampering * error_term * 1e-4)
                 total_loss = loss1 + loss2 + loss3
+
+            if np.isnan(total_loss.item()):
+                continue
 
             scaler.scale(total_loss).backward()
             scaler.step(optimizer)
@@ -162,26 +165,31 @@ def run_finetune(params):
             epoch_train_losses.append(total_loss.item())
             pbar.set_postfix({'Train Loss': np.mean(epoch_train_losses)})
 
+        scheduler.step()
+
         # Save model after a specified number of epochs
         if epoch % params['saving_interval'] == 0:
             ckpt_path = os.path.join(checkpoints_dir, f"epoch_{epoch}.pth")
             torch.save(model.state_dict(), ckpt_path)
             print(f"Saved checkpoint: {ckpt_path}")
 
-        scheduler.step()
-
         # === Validation ===
         model.eval()
         epoch_val_losses = []
+        vbar = tqdm(val_loader, desc=f"[Val]   Epoch {epoch}/{params['epochs']}")
         with torch.no_grad():
-            for image, gt_mask, _ in val_loader:
+            for image, gt_mask, _ in vbar:
                 image, gt_mask = image.to(device), gt_mask.to(device)
-
-                mask_tampering = (1 - gt_mask[:, 2, :, :]).unsqueeze(1) 
+                mask_tampering = (1 - gt_mask[:, 2, :, :]).unsqueeze(1)
 
                 binary_mask, _, _, _ = model(image)
-                val_loss = dice_loss(binary_mask, mask_tampering)
-                epoch_val_losses.append(val_loss.item())
+                loss = dice_loss(binary_mask, mask_tampering)
+
+                if np.isnan(loss.item()):
+                    continue
+
+                epoch_val_losses.append(loss.item())
+                vbar.set_postfix({'Val Loss': np.mean(epoch_val_losses)})
 
         mean_train_loss = np.mean(epoch_train_losses)
         mean_val_loss   = np.mean(epoch_val_losses)
@@ -211,10 +219,11 @@ def run_finetune(params):
 
     print("Training complete :D")
 
+
     # === Plot and save losses ===
     plt.figure(figsize=(10, 6))
-    plt.plot(range(1, len(train_losses) + 1), train_losses, label='Train Loss')
-    plt.plot(range(1, len(val_losses) + 1), val_losses, label='Val Loss')
+    plt.plot(range(1, len(train_loss) + 1), train_loss, label='Train Loss')
+    plt.plot(range(1, len(val_loss) + 1), val_loss, label='Val Loss')
     plt.xlabel("Epoch")
     plt.ylabel("Loss")
     plt.title("Training and Validation Loss")
